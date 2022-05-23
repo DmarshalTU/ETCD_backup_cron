@@ -1,0 +1,95 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: etcd-backup
+  labels:
+    app.kubernetes.io/name: etcd-backup
+    app.kubernetes.io/instance: etcd-backup
+
+---
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  namespace: etcd-backup
+  labels:
+    app: etcd-backup
+    app-group: etcd-backup
+  name: etcd-backup-snapshot-pvc
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: ectd-backup
+rules:
+- apiGroups: [""] 
+  resources: ["pods"]
+  verbs: ["get", "watch", "list"]
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: ectd-backup
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: etcd-backup
+roleRef:
+  kind: ClusterRole 
+  name: ectd-backup
+  apiGroup: rbac.authorization.k8s.io
+  
+---
+
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: etcd-backup
+  namespace: etcd-backup
+  labels:
+    app: etcd-backup
+    app-group: etcd-backup
+spec:
+  # Change the schedule here. This is with timezone set to UTC+0:00
+  schedule: "0 0 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - env:
+            - name: TZ
+              value: "Asia/Jerusalem"
+            name: ectd-backup
+            image: dmarshaltu/etcd-backup:amd64-1.0.0
+            imagePullPolicy: IfNotPresent
+            resources:
+              requests:
+                cpu: 100m
+                memory: 100Mi
+            volumeMounts:
+            - mountPath: /etc/kubernetes/pki
+              name: etcd-certs
+              readOnly: true
+            - mountPath: /backup
+              name: snapshot-dir
+          restartPolicy: OnFailure
+          volumes:
+          - hostPath:
+              path: /etc/kubernetes/pki
+              type: Directory
+            name: etcd-certs
+          - name: snapshot-dir
+            persistentVolumeClaim:
+              claimName: etcd-backup-snapshot-pvc
+

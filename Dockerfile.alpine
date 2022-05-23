@@ -1,0 +1,44 @@
+FROM alpine:3.15.0
+
+ENV ETCD_VERSION="v3.5.0"
+ENV ETCD_PATH="/etcd"
+ENV ETCD_ENDPOINTS=""
+ENV BAKCUP_PATH="/backup"
+ENV ETCD_PKI_HOSTPATH="/etc/kubernetes/pki/etcd"
+ENV ETCD_CACERT="ca.crt"
+ENV ETCD_SERVER_CERT="server.crt"
+ENV ETCD_SERVER_KEY="server.key"
+ENV LOG_DIR="${BAKCUP_PATH}/logs"
+ENV TZ="Etc/GMT"
+
+RUN apk add --no-cache --virtual .build-deps git go 
+RUN apk add --no-cache bash jq tzdata \
+    && apk update \
+    && mkdir -p ${ETCD_PATH} \
+    && mkdir -p /etcd-source \
+    && git clone -b ${ETCD_VERSION} https://github.com/etcd-io/etcd.git /etcd-source \
+    && cd /etcd-source \
+    && ./build.sh \
+    && cp /etcd-source/bin/etcdctl ${ETCD_PATH}/ \
+    && rm -rf /etcd-source \
+    && chmod -R +x ${ETCD_PATH}/* \
+    && mkdir -p ${LOG_DIR} \
+    && chown -R root:root ${BAKCUP_PATH} ${ETCD_PATH} ${LOG_DIR} \
+    && cp /usr/share/zoneinfo/$TZ /etc/localtime
+
+RUN apk del .build-deps
+
+COPY --chown=root:root ./run-backup.sh ${ETCD_PATH}/
+
+WORKDIR ${ETCD_PATH}/
+
+USER root
+
+CMD "${ETCD_PATH}/run-backup.sh"
+
+#ENTRYPOINT [ "${ETCD_PATH}/run-backup.sh" ]
+
+
+
+
+

@@ -60,4 +60,18 @@ ETCDCTL_API=3 ETCDCTL_CACERT={path_to}/ca.pem ETCDCTL_CERT={path_to}/master01.pe
 +---------+-----------+------------+------------+
 ```
 
-### Denis Tu, May 2022
+### Schedule backup of etcd to snapshot.db
+
+``` py
+import schedule
+
+def backup_etcd(): ...
+
+schedule.every().day.at("00:00").do(backup_etcd)
+```
+or
+``` bash
+00 00 * * * python /path/to/main.py
+```
+
+#### Denis Tu, May 2022
